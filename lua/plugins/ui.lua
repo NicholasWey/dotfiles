@@ -199,13 +199,18 @@ return {
         end
       end
 
-      vim.api.nvim_create_autocmd('FileType', {
-        pattern = 'alpha',
-        callback = function()
-          orb_buf = vim.api.nvim_get_current_buf()
-          orb_header_start = nil
+      local function start_orb()
+        orb_buf = vim.api.nvim_get_current_buf()
+        orb_header_start = nil
+        if not timer:is_active() then
           timer:start(0, 50, vim.schedule_wrap(tick))
-        end,
+        end
+      end
+
+      -- FileType fires on first load; BufEnter restarts after returning from Telescope etc.
+      vim.api.nvim_create_autocmd({ 'FileType', 'BufEnter' }, {
+        pattern = 'alpha',
+        callback = start_orb,
       })
     end,
   },
