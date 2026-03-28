@@ -10,6 +10,14 @@ return {
         flavour = 'mocha',
         -- Let Windows Terminal's acrylic show through when not in Neovide
         transparent_background = not vim.g.neovide,
+        -- Match Windows Terminal Orb background (#070A12)
+        color_overrides = {
+          mocha = {
+            base   = '#070A12',
+            mantle = '#050810',
+            crust  = '#04060E',
+          },
+        },
         integrations = {
           telescope = { enabled = true },
           neotree = true,
