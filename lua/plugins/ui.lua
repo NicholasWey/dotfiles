@@ -57,8 +57,18 @@ return {
       local alpha = require 'alpha'
       local dashboard = require 'alpha.themes.dashboard'
 
+      -- Orb highlight groups: 8 brightness levels, dark navy → bright cyan
+      -- mirrors orb.py's orb_color(v): r=v*160+(1-v)*20, g=v*220+(1-v)*30, b=v*255+(1-v)*120
+      local orb_ns = vim.api.nvim_create_namespace 'orb_dashboard'
+      for i = 2, 9 do
+        local v = (i - 1) / 8.0
+        local r = math.floor(v * 160 + (1 - v) * 20)
+        local g = math.floor(v * 220 + (1 - v) * 30)
+        local b = math.floor(v * 255 + (1 - v) * 120)
+        vim.api.nvim_set_hl(0, 'OrbHl' .. i, { fg = string.format('#%02x%02x%02x', r, g, b) })
+      end
+
       -- Orb renderer (ported from orb.py)
-      -- Renders rows 3-15 of the original 19-row frame (the non-empty orb body)
       local ORB_CHARS = ' .:-=+*#@'
       local ORB_W, ORB_CX, ORB_CY, ORB_R = 45, 22, 9, 14.0
 
@@ -87,24 +97,32 @@ return {
         return math.max(0.0, math.min(1.0, diffuse * 0.75 + n * edge + edge * 0.1))
       end
 
+      -- Returns rows (strings) and brightness matrix (index 1-9 per char)
       local function render_orb(t)
-        local rows = {}
+        local rows, bright = {}, {}
         for y = 3, 15 do
-          local cols = {}
+          local cols, brow = {}, {}
           for x = 0, ORB_W - 1 do
             local v = orb_sample(x, y, t)
             local idx = math.floor(v * (#ORB_CHARS - 1)) + 1
             cols[#cols + 1] = ORB_CHARS:sub(idx, idx)
+            brow[#brow + 1] = idx
           end
           rows[#rows + 1] = table.concat(cols)
+          bright[#bright + 1] = brow
         end
-        return rows
+        return rows, bright
       end
 
-      -- Animated header: val is a function so alpha re-calls it on each redraw
       local orb_t = 0.0
+      local last_rows, last_bright = {}, {}
+
+      -- val is a function so alpha re-calls it on each redraw
       dashboard.section.header.val = function()
-        return render_orb(orb_t)
+        local rows, bright = render_orb(orb_t)
+        last_rows = rows
+        last_bright = bright
+        return rows
       end
 
       dashboard.section.buttons.val = {
@@ -117,6 +135,39 @@ return {
 
       alpha.setup(dashboard.opts)
 
+      local orb_buf = nil
+      local orb_header_start = nil
+
+      local function find_header_start(buf)
+        if #last_rows == 0 then return nil end
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        for i, line in ipairs(lines) do
+          if line == last_rows[1] then return i - 1 end  -- 0-indexed
+        end
+        return nil
+      end
+
+      local function apply_colors()
+        if not orb_buf or not vim.api.nvim_buf_is_valid(orb_buf) then return end
+        if not orb_header_start then
+          orb_header_start = find_header_start(orb_buf)
+        end
+        if not orb_header_start then return end
+        vim.api.nvim_buf_clear_namespace(orb_buf, orb_ns, 0, -1)
+        for row_i, brow in ipairs(last_bright) do
+          local line = orb_header_start + row_i - 1
+          for col_i, level in ipairs(brow) do
+            if level > 1 then
+              vim.api.nvim_buf_set_extmark(orb_buf, orb_ns, line, col_i - 1, {
+                end_col = col_i,
+                hl_group = 'OrbHl' .. level,
+                priority = 200,
+              })
+            end
+          end
+        end
+      end
+
       -- Drive animation: tick every 50ms (20fps), only while dashboard is visible
       local timer = vim.uv.new_timer()
 
@@ -127,11 +178,14 @@ return {
         end
         orb_t = orb_t + 0.05
         pcall(require('alpha').redraw)
+        apply_colors()
       end
 
       vim.api.nvim_create_autocmd('FileType', {
         pattern = 'alpha',
         callback = function()
+          orb_buf = vim.api.nvim_get_current_buf()
+          orb_header_start = nil
           timer:start(0, 50, vim.schedule_wrap(tick))
         end,
       })
