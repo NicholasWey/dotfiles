@@ -18,7 +18,6 @@ return {
         shell = vim.fn.has 'win32' == 1 and 'bash' or vim.o.shell,
         on_open = function(term)
           vim.cmd 'startinsert!'
-          vim.keymap.set('t', '<Esc><Esc>', [[<C-\><C-n>]], { noremap = true, silent = true, buffer = term.bufnr })
         end,
       }
     end,
