@@ -167,20 +167,28 @@ return {
           if not orb_header_start then return end
         end
 
+        -- Center rows to match alpha's initial layout
+        local pad_n = math.max(0, math.floor((vim.api.nvim_win_get_width(0) - ORB_W) / 2))
+        local pad = string.rep(' ', pad_n)
+        local centered = {}
+        for _, row in ipairs(rows) do
+          centered[#centered + 1] = pad .. row
+        end
+
         -- Directly update buffer text (bypass alpha redraw entirely)
         local ma = vim.bo[orb_buf].modifiable
         vim.bo[orb_buf].modifiable = true
-        vim.api.nvim_buf_set_lines(orb_buf, orb_header_start, orb_header_start + #rows, false, rows)
+        vim.api.nvim_buf_set_lines(orb_buf, orb_header_start, orb_header_start + #rows, false, centered)
         vim.bo[orb_buf].modifiable = ma
 
-        -- Apply per-character colors via extmarks
+        -- Apply per-character colors via extmarks (offset by centering pad)
         vim.api.nvim_buf_clear_namespace(orb_buf, orb_ns, orb_header_start, orb_header_start + #rows)
         for row_i, brow in ipairs(bright) do
           local line = orb_header_start + row_i - 1
           for col_i, level in ipairs(brow) do
             if level > 1 then
-              vim.api.nvim_buf_set_extmark(orb_buf, orb_ns, line, col_i - 1, {
-                end_col = col_i,
+              vim.api.nvim_buf_set_extmark(orb_buf, orb_ns, line, pad_n + col_i - 1, {
+                end_col = pad_n + col_i,
                 hl_group = 'OrbHl' .. level,
                 priority = 200,
               })
