@@ -15,7 +15,7 @@ return {
           winblend = 10,
         },
         -- Use PowerShell on Windows
-        shell = vim.fn.has 'win32' == 1 and 'pwsh' or vim.o.shell,
+        shell = vim.fn.has 'win32' == 1 and 'powershell' or vim.o.shell,
         on_open = function(term)
           vim.cmd 'startinsert!'
         end,
