@@ -14,8 +14,8 @@ return {
           border = 'curved',
           winblend = 10,
         },
-        -- Use Git Bash on Windows
-        shell = vim.fn.has 'win32' == 1 and 'bash' or vim.o.shell,
+        -- Use PowerShell on Windows
+        shell = vim.fn.has 'win32' == 1 and 'pwsh' or vim.o.shell,
         on_open = function(term)
           vim.cmd 'startinsert!'
         end,
