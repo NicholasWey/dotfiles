@@ -959,6 +959,10 @@ if vim.g.neovide then
   vim.g.neovide_opacity = 0.82
   vim.g.neovide_window_blurred = true
   vim.g.neovide_scroll_animation_length = 0.15
+  -- When launched from the Start Menu the cwd is the install dir; go home instead.
+  if vim.fn.argc() == 0 and vim.fn.getcwd():find('Neovide', 1, true) then
+    vim.cmd 'cd ~'
+  end
 end
 
 -- The line beneath this is called `modeline`. See `:help modeline`

@@ -8,6 +8,8 @@ return {
     config = function()
       require('catppuccin').setup {
         flavour = 'mocha',
+        -- Let Windows Terminal's acrylic show through when not in Neovide
+        transparent_background = not vim.g.neovide,
         integrations = {
           telescope = { enabled = true },
           neotree = true,
