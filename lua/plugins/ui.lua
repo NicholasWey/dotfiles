@@ -24,7 +24,7 @@ return {
   -- Statusline
   {
     'nvim-lualine/lualine.nvim',
-    dependencies = { 'nvim-tree/nvim-web-devicons' },
+    dependencies = { 'nvim-tree/nvim-web-devicons', 'catppuccin/nvim' },
     config = function()
       require('lualine').setup {
         options = {
@@ -48,6 +48,10 @@ return {
   -- Dashboard splash screen
   {
     'goolord/alpha-nvim',
+    event = 'VimEnter',
+    cond = function()
+      return vim.fn.argc() == 0
+    end,
     dependencies = { 'nvim-tree/nvim-web-devicons' },
     config = function()
       local alpha = require 'alpha'
@@ -59,7 +63,7 @@ return {
         '██╔██╗ ██║██║   ██║██║██╔████╔██║',
         '██║╚██╗██║╚██╗ ██╔╝██║██║╚██╔╝██║',
         '██║ ╚████║ ╚████╔╝ ██║██║ ╚═╝ ██║',
-        '╚═╝  ╚═══╝  ╚═══╝  ╚═╝╚═╝     ╚═╝',
+        '╚═╝  ╚═══╝  ╚═══╝  ╚═╝ ╚═╝    ╚═╝',
       }
 
       dashboard.section.buttons.val = {
