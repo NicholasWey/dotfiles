@@ -8,8 +8,9 @@ return {
     config = function()
       require('catppuccin').setup {
         flavour = 'mocha',
-        -- Let Windows Terminal's acrylic show through when not in Neovide
-        transparent_background = not vim.g.neovide,
+        -- Transparent in both terminal and Neovide; system blur/acrylic provides
+        -- the frosted glass effect in both cases.
+        transparent_background = true,
         -- Match Windows Terminal Orb background (#070A12)
         color_overrides = {
           mocha = {
