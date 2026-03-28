@@ -57,16 +57,22 @@ return {
       local alpha = require 'alpha'
       local dashboard = require 'alpha.themes.dashboard'
 
-      -- Orb highlight groups: 8 brightness levels, dark navy → bright cyan
-      -- mirrors orb.py's orb_color(v): r=v*160+(1-v)*20, g=v*220+(1-v)*30, b=v*255+(1-v)*120
+      -- Orb highlight groups: levels 2-9, dark navy → bright cyan
+      -- matches orb.py's orb_color(v): r=v*160+(1-v)*20, g=v*220+(1-v)*30, b=v*255+(1-v)*120
       local orb_ns = vim.api.nvim_create_namespace 'orb_dashboard'
-      for i = 2, 9 do
-        local v = (i - 1) / 8.0
-        local r = math.floor(v * 160 + (1 - v) * 20)
-        local g = math.floor(v * 220 + (1 - v) * 30)
-        local b = math.floor(v * 255 + (1 - v) * 120)
-        vim.api.nvim_set_hl(0, 'OrbHl' .. i, { fg = string.format('#%02x%02x%02x', r, g, b) })
+
+      local function set_orb_hls()
+        for i = 2, 9 do
+          local v = (i - 1) / 8.0
+          local r = math.floor(v * 160 + (1 - v) * 20)
+          local g = math.floor(v * 220 + (1 - v) * 30)
+          local b = math.floor(v * 255 + (1 - v) * 120)
+          vim.api.nvim_set_hl(0, 'OrbHl' .. i, { fg = string.format('#%02x%02x%02x', r, g, b) })
+        end
       end
+      set_orb_hls()
+      -- Re-apply if colorscheme reloads
+      vim.api.nvim_create_autocmd('ColorScheme', { callback = set_orb_hls })
 
       -- Orb renderer (ported from orb.py)
       local ORB_CHARS = ' .:-=+*#@'
@@ -97,7 +103,7 @@ return {
         return math.max(0.0, math.min(1.0, diffuse * 0.75 + n * edge + edge * 0.1))
       end
 
-      -- Returns rows (strings) and brightness matrix (index 1-9 per char)
+      -- Returns text rows and per-char brightness indices (1-9)
       local function render_orb(t)
         local rows, bright = {}, {}
         for y = 3, 15 do
@@ -114,16 +120,10 @@ return {
         return rows, bright
       end
 
+      -- Static initial frame for alpha setup (alpha evaluates val once at setup)
       local orb_t = 0.0
-      local last_rows, last_bright = {}, {}
-
-      -- val is a function so alpha re-calls it on each redraw
-      dashboard.section.header.val = function()
-        local rows, bright = render_orb(orb_t)
-        last_rows = rows
-        last_bright = bright
-        return rows
-      end
+      local init_rows, _ = render_orb(orb_t)
+      dashboard.section.header.val = init_rows
 
       dashboard.section.buttons.val = {
         dashboard.button('f', '  Find file',     '<cmd>Telescope find_files<cr>'),
@@ -137,24 +137,42 @@ return {
 
       local orb_buf = nil
       local orb_header_start = nil
+      local timer = vim.uv.new_timer()
 
+      -- Find the first orb row in the buffer (pattern-based, immune to trailing-space trimming)
       local function find_header_start(buf)
-        if #last_rows == 0 then return nil end
         local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
         for i, line in ipairs(lines) do
-          if line == last_rows[1] then return i - 1 end  -- 0-indexed
+          if line:match('^%s+%.%.%.%s*$') then return i - 1 end
         end
         return nil
       end
 
-      local function apply_colors()
+      local function tick()
+        if vim.bo.filetype ~= 'alpha' then
+          timer:stop()
+          return
+        end
         if not orb_buf or not vim.api.nvim_buf_is_valid(orb_buf) then return end
+
+        orb_t = orb_t + 0.05
+        local rows, bright = render_orb(orb_t)
+
+        -- Locate header once, then cache
         if not orb_header_start then
           orb_header_start = find_header_start(orb_buf)
+          if not orb_header_start then return end
         end
-        if not orb_header_start then return end
-        vim.api.nvim_buf_clear_namespace(orb_buf, orb_ns, 0, -1)
-        for row_i, brow in ipairs(last_bright) do
+
+        -- Directly update buffer text (bypass alpha redraw entirely)
+        local ma = vim.bo[orb_buf].modifiable
+        vim.bo[orb_buf].modifiable = true
+        vim.api.nvim_buf_set_lines(orb_buf, orb_header_start, orb_header_start + #rows, false, rows)
+        vim.bo[orb_buf].modifiable = ma
+
+        -- Apply per-character colors via extmarks
+        vim.api.nvim_buf_clear_namespace(orb_buf, orb_ns, orb_header_start, orb_header_start + #rows)
+        for row_i, brow in ipairs(bright) do
           local line = orb_header_start + row_i - 1
           for col_i, level in ipairs(brow) do
             if level > 1 then
@@ -166,19 +184,6 @@ return {
             end
           end
         end
-      end
-
-      -- Drive animation: tick every 50ms (20fps), only while dashboard is visible
-      local timer = vim.uv.new_timer()
-
-      local function tick()
-        if vim.bo.filetype ~= 'alpha' then
-          timer:stop()
-          return
-        end
-        orb_t = orb_t + 0.05
-        pcall(require('alpha').redraw)
-        apply_colors()
       end
 
       vim.api.nvim_create_autocmd('FileType', {
