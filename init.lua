@@ -852,7 +852,7 @@ require('lazy').setup({
       -- Simple and easy statusline.
       --  You could remove this setup call if you don't like it,
       --  and try some other statusline plugin
-      local statusline = require 'mini.statusline'
+      -- local statusline = require 'mini.statusline'
       -- set use_icons to true if you have a Nerd Font
       -- statusline.setup { use_icons = vim.g.have_nerd_font }
 
@@ -860,7 +860,7 @@ require('lazy').setup({
       -- default behavior. For example, here we set the section for
       -- cursor location to LINE:COLUMN
       ---@diagnostic disable-next-line: duplicate-set-field
-      statusline.section_location = function() return '%2l:%-2v' end
+      -- statusline.section_location = function() return '%2l:%-2v' end
 
       -- ... and there is more!
       --  Check out: https://github.com/nvim-mini/mini.nvim
@@ -916,7 +916,7 @@ require('lazy').setup({
   -- require 'kickstart.plugins.neo-tree',
   require 'kickstart.plugins.gitsigns', -- adds gitsigns recommended keymaps
 
-  -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
+  -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/plugins/*.lua`
   --    This is the easiest way to modularize your config.
   --
   --  Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
