@@ -142,14 +142,17 @@ return {
       local orb_header_start = nil
       local timer = vim.uv.new_timer()
 
-      -- Find the header: first block of ORB_ROWS consecutive lines that contain
-      -- only orb characters (space + .:-=+*#@) with at least one non-space char.
+      -- Find the header: first block of ORB_ROWS consecutive lines that
+      -- (a) contain only orb chars, (b) are all non-empty (padding rows are
+      -- empty strings ""; blank orb rows written by alpha have centering spaces
+      -- so they are non-empty), and (c) have at least one non-space orb char.
       local function find_header_start(buf)
         local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
         for i = 1, #lines - ORB_ROWS + 1 do
           local ok, has_content = true, false
           for j = 0, ORB_ROWS - 1 do
             local line = lines[i + j]
+            if #line == 0 then ok = false; break end          -- empty = padding
             if line:match('[^ .:%-%=+*#@]') then ok = false; break end
             if line:match('[.:%-%=+*#@]') then has_content = true end
           end
@@ -206,7 +209,8 @@ return {
 
       local function start_orb()
         orb_buf = vim.api.nvim_get_current_buf()
-        orb_header_start = nil
+        -- Keep cached orb_header_start across BufEnter trips (Telescope, etc.)
+        -- Only VimResized clears it, since alpha re-renders on window size changes
         if not timer:is_active() then
           timer:start(0, 50, vim.schedule_wrap(tick))
         end
