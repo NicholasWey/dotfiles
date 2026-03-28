@@ -79,7 +79,7 @@ return {
       -- Orb renderer (ported from orb.py)
       local ORB_CHARS = ' .:-=+*#@'
       local ORB_W, ORB_CX, ORB_CY, ORB_R = 45, 22, 9, 14.0
-      local ORB_HEADER_MARK = '<<ORB_HDR>>'
+      local ORB_ROWS = 13 -- render loop y=3..15
 
       local function noise2d(x, y, t)
         return (
@@ -123,11 +123,9 @@ return {
         return rows, bright
       end
 
-      -- Static initial frame; row 1 is a sentinel so find_header_start can
-      -- locate it even when the top orb rows are blank at t=0.
+      -- Static initial frame for alpha setup (alpha evaluates val once at setup)
       local orb_t = 0.0
       local init_rows, _ = render_orb(orb_t)
-      init_rows[1] = ORB_HEADER_MARK
       dashboard.section.header.val = init_rows
 
       dashboard.section.buttons.val = {
@@ -144,11 +142,18 @@ return {
       local orb_header_start = nil
       local timer = vim.uv.new_timer()
 
-      -- Find the sentinel row alpha wrote into the buffer; guaranteed non-empty.
+      -- Find the header: first block of ORB_ROWS consecutive lines that contain
+      -- only orb characters (space + .:-=+*#@) with at least one non-space char.
       local function find_header_start(buf)
         local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-        for i, line in ipairs(lines) do
-          if line:find(ORB_HEADER_MARK, 1, true) then return i - 1 end
+        for i = 1, #lines - ORB_ROWS + 1 do
+          local ok, has_content = true, false
+          for j = 0, ORB_ROWS - 1 do
+            local line = lines[i + j]
+            if line:match('[^ .:%-%=+*#@]') then ok = false; break end
+            if line:match('[.:%-%=+*#@]') then has_content = true end
+          end
+          if ok and has_content then return i - 1 end
         end
         return nil
       end
@@ -207,10 +212,23 @@ return {
         end
       end
 
-      -- FileType fires on first load; BufEnter restarts after returning from Telescope etc.
-      vim.api.nvim_create_autocmd({ 'FileType', 'BufEnter' }, {
+      -- FileType fires on first load (pattern matches filetype here)
+      vim.api.nvim_create_autocmd('FileType', {
         pattern = 'alpha',
         callback = start_orb,
+      })
+      -- BufEnter fires when returning from Telescope/Neotree/etc.
+      -- pattern = 'alpha' matches buffer names, not filetypes — use callback check instead
+      vim.api.nvim_create_autocmd('BufEnter', {
+        callback = function()
+          if vim.bo.filetype == 'alpha' then start_orb() end
+        end,
+      })
+      -- Window resize changes alpha's layout; drop the cached header position
+      vim.api.nvim_create_autocmd('VimResized', {
+        callback = function()
+          if vim.bo.filetype == 'alpha' then orb_header_start = nil end
+        end,
       })
     end,
   },
