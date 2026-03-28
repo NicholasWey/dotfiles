@@ -77,6 +77,7 @@ return {
       -- Orb renderer (ported from orb.py)
       local ORB_CHARS = ' .:-=+*#@'
       local ORB_W, ORB_CX, ORB_CY, ORB_R = 45, 22, 9, 14.0
+      local ORB_HEADER_MARK = '<<ORB_HDR>>'
 
       local function noise2d(x, y, t)
         return (
@@ -120,9 +121,11 @@ return {
         return rows, bright
       end
 
-      -- Static initial frame for alpha setup (alpha evaluates val once at setup)
+      -- Static initial frame; row 1 is a sentinel so find_header_start can
+      -- locate it even when the top orb rows are blank at t=0.
       local orb_t = 0.0
       local init_rows, _ = render_orb(orb_t)
+      init_rows[1] = ORB_HEADER_MARK
       dashboard.section.header.val = init_rows
 
       dashboard.section.buttons.val = {
@@ -139,11 +142,11 @@ return {
       local orb_header_start = nil
       local timer = vim.uv.new_timer()
 
-      -- Find the first orb row in the buffer (pattern-based, immune to trailing-space trimming)
+      -- Find the sentinel row alpha wrote into the buffer; guaranteed non-empty.
       local function find_header_start(buf)
         local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
         for i, line in ipairs(lines) do
-          if line:match('^%s+%.%.%.%s*$') then return i - 1 end
+          if line:find(ORB_HEADER_MARK, 1, true) then return i - 1 end
         end
         return nil
       end
